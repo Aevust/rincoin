@@ -493,6 +493,15 @@ crypto_libbitcoin_crypto_base_a_SOURCES = \
   libmw/src/crypto/Hasher.cpp
 
 crypto_libbitcoin_crypto_base_a_LIBADD = $(builddir)/crypto/argon2/libargon2.a
+if ENABLE_SSE41
+crypto_libbitcoin_crypto_base_a_LIBADD += $(builddir)/crypto/argon2/libargon2_ssse3.a
+endif
+if ENABLE_AVX2
+crypto_libbitcoin_crypto_base_a_LIBADD += $(builddir)/crypto/argon2/libargon2_avx2.a
+endif
+if ENABLE_AVX512F
+crypto_libbitcoin_crypto_base_a_LIBADD += $(builddir)/crypto/argon2/libargon2_avx512.a
+endif
 
 if USE_ASM
 crypto_libbitcoin_crypto_base_a_SOURCES += crypto/sha256_sse4.cpp

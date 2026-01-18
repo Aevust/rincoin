@@ -6,7 +6,9 @@
  *
  * AVX-512 optimized version for Rincoin
  * Uses 512-bit SIMD operations for ~4-6x speedup over reference
- * Requires AVX-512F and AVX-512DQ extensions
+ * Requires AVX-512F extension
+ *
+ * Fixed: Uses proper 8-argument BLAKE2_ROUND_1/2 macros with SWAP_HALVES/QUARTERS
  */
 
 #include <stdint.h>
@@ -18,7 +20,7 @@
 
 /* Only compile AVX-512 code on x86-64 with AVX-512 support */
 #if defined(__x86_64__) || defined(_M_X64)
-#if defined(__AVX512F__) && defined(__AVX512DQ__)
+#if defined(__AVX512F__)
 
 #ifdef __GNUC__
 #include <x86intrin.h>
@@ -57,24 +59,18 @@ static void fill_block_avx512(__m512i *state, const block *ref_block,
         }
     }
 
-    /* Apply BlaMka rounds - process 2 groups of 8 512-bit words */
+    /* Apply BlaMka rounds - process rows (2 iterations) */
     for (i = 0; i < 2; ++i) {
-        BLAKE2_ROUND_AVX512(
-            state[8 * i + 0], state[8 * i + 1],
-            state[8 * i + 2], state[8 * i + 3]);
-        BLAKE2_ROUND_AVX512(
-            state[8 * i + 4], state[8 * i + 5],
-            state[8 * i + 6], state[8 * i + 7]);
+        BLAKE2_ROUND_1_AVX512(
+            state[8 * i + 0], state[8 * i + 1], state[8 * i + 2], state[8 * i + 3],
+            state[8 * i + 4], state[8 * i + 5], state[8 * i + 6], state[8 * i + 7]);
     }
 
-    /* Apply BlaMka rounds - interleaved */
+    /* Apply BlaMka rounds - process columns (2 iterations) */
     for (i = 0; i < 2; ++i) {
-        BLAKE2_ROUND_AVX512(
-            state[2 * 0 + i], state[2 * 1 + i],
-            state[2 * 2 + i], state[2 * 3 + i]);
-        BLAKE2_ROUND_AVX512(
-            state[2 * 4 + i], state[2 * 5 + i],
-            state[2 * 6 + i], state[2 * 7 + i]);
+        BLAKE2_ROUND_2_AVX512(
+            state[2 * 0 + i], state[2 * 1 + i], state[2 * 2 + i], state[2 * 3 + i],
+            state[2 * 4 + i], state[2 * 5 + i], state[2 * 6 + i], state[2 * 7 + i]);
     }
 
     /* XOR and store result */
@@ -204,5 +200,5 @@ void fill_segment_avx512(const argon2_instance_t *instance,
     }
 }
 
-#endif /* __AVX512F__ && __AVX512DQ__ */
+#endif /* __AVX512F__ */
 #endif /* __x86_64__ || _M_X64 */

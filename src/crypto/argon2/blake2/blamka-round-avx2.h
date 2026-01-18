@@ -135,9 +135,47 @@
     } while ((void)0, 0)
 
 /*
+ * DIAGONALIZE_2 / UNDIAGONALIZE_2 for BLAKE2_ROUND_2
+ * These handle the row-wise round differently than column-wise
+ */
+#define DIAGONALIZE_2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1) \
+    do { \
+        __m256i tmp1 = _mm256_blend_epi32(B0, B1, 0xCC); \
+        __m256i tmp2 = _mm256_blend_epi32(B0, B1, 0x33); \
+        B1 = _mm256_permute4x64_epi64(tmp1, _MM_SHUFFLE(2,3,0,1)); \
+        B0 = _mm256_permute4x64_epi64(tmp2, _MM_SHUFFLE(2,3,0,1)); \
+        \
+        tmp1 = C0; \
+        C0 = C1; \
+        C1 = tmp1; \
+        \
+        tmp1 = _mm256_blend_epi32(D0, D1, 0xCC); \
+        tmp2 = _mm256_blend_epi32(D0, D1, 0x33); \
+        D0 = _mm256_permute4x64_epi64(tmp1, _MM_SHUFFLE(2,3,0,1)); \
+        D1 = _mm256_permute4x64_epi64(tmp2, _MM_SHUFFLE(2,3,0,1)); \
+    } while ((void)0, 0)
+
+#define UNDIAGONALIZE_2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1) \
+    do { \
+        __m256i tmp1 = _mm256_blend_epi32(B0, B1, 0xCC); \
+        __m256i tmp2 = _mm256_blend_epi32(B0, B1, 0x33); \
+        B0 = _mm256_permute4x64_epi64(tmp1, _MM_SHUFFLE(2,3,0,1)); \
+        B1 = _mm256_permute4x64_epi64(tmp2, _MM_SHUFFLE(2,3,0,1)); \
+        \
+        tmp1 = C0; \
+        C0 = C1; \
+        C1 = tmp1; \
+        \
+        tmp1 = _mm256_blend_epi32(D0, D1, 0x33); \
+        tmp2 = _mm256_blend_epi32(D0, D1, 0xCC); \
+        D0 = _mm256_permute4x64_epi64(tmp1, _MM_SHUFFLE(2,3,0,1)); \
+        D1 = _mm256_permute4x64_epi64(tmp2, _MM_SHUFFLE(2,3,0,1)); \
+    } while ((void)0, 0)
+
+/*
  * Complete BlaMka round macros for AVX2
- * BLAKE2_ROUND_1: Column operations
- * BLAKE2_ROUND_2: Diagonal operations
+ * BLAKE2_ROUND_1: Column operations (uses simple permute diagonalize)
+ * BLAKE2_ROUND_2: Diagonal/row operations (uses blend+permute diagonalize)
  */
 #define BLAKE2_ROUND_1_AVX2(A0, A1, B0, B1, C0, C1, D0, D1) \
     do { \
@@ -150,7 +188,14 @@
     } while ((void)0, 0)
 
 #define BLAKE2_ROUND_2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1) \
-    BLAKE2_ROUND_1_AVX2(A0, A1, B0, B1, C0, C1, D0, D1)
+    do { \
+        G1_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+        G2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+        DIAGONALIZE_2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+        G1_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+        G2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+        UNDIAGONALIZE_2_AVX2(A0, A1, B0, B1, C0, C1, D0, D1); \
+    } while ((void)0, 0)
 
 /* Number of 256-bit words in an Argon2 block (1024 bytes / 32 bytes = 32) */
 #define ARGON2_HWORDS_IN_BLOCK 32

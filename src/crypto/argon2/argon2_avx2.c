@@ -60,10 +60,10 @@ static void fill_block_avx2(__m256i *state, const block *ref_block,
     /* Apply BlaMka rounds - column-wise */
     for (i = 0; i < 4; ++i) {
         BLAKE2_ROUND_1_AVX2(
-            state[8 * i + 0], state[8 * i + 1],
-            state[8 * i + 2], state[8 * i + 3],
-            state[8 * i + 4], state[8 * i + 5],
-            state[8 * i + 6], state[8 * i + 7]);
+            state[8 * i + 0], state[8 * i + 4],
+            state[8 * i + 1], state[8 * i + 5],
+            state[8 * i + 2], state[8 * i + 6],
+            state[8 * i + 3], state[8 * i + 7]);
     }
 
     /* Apply BlaMka rounds - row-wise */

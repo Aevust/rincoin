@@ -103,30 +103,84 @@ static BLAKE2_INLINE __m128i fBlaMka_ssse3(__m128i x, __m128i y) {
 /*
  * Complete BlaMka round macro for SSSE3
  * Processes 8 128-bit registers (16 64-bit values)
+ * 
+ * NOTE: The diagonalize/undiagonalize operates ACROSS register pairs (A0/A1, B0/B1, etc.)
+ * using alignr to move 64-bit values between registers
  */
-#define BLAKE2_ROUND_SSSE3(A0, A1, B0, B1, C0, C1, D0, D1) \
-    do { \
-        G1_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1); \
-        G2_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1); \
-        \
-        /* Diagonal shuffle */ \
-        D0 = _mm_shuffle_epi32(D0, _MM_SHUFFLE(2, 1, 0, 3)); \
-        D1 = _mm_shuffle_epi32(D1, _MM_SHUFFLE(2, 1, 0, 3)); \
-        C0 = _mm_shuffle_epi32(C0, _MM_SHUFFLE(1, 0, 3, 2)); \
-        C1 = _mm_shuffle_epi32(C1, _MM_SHUFFLE(1, 0, 3, 2)); \
-        B0 = _mm_shuffle_epi32(B0, _MM_SHUFFLE(0, 3, 2, 1)); \
-        B1 = _mm_shuffle_epi32(B1, _MM_SHUFFLE(0, 3, 2, 1)); \
-        \
-        G1_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1); \
-        G2_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1); \
-        \
-        /* Undiagonalize */ \
-        D0 = _mm_shuffle_epi32(D0, _MM_SHUFFLE(0, 3, 2, 1)); \
-        D1 = _mm_shuffle_epi32(D1, _MM_SHUFFLE(0, 3, 2, 1)); \
-        C0 = _mm_shuffle_epi32(C0, _MM_SHUFFLE(1, 0, 3, 2)); \
-        C1 = _mm_shuffle_epi32(C1, _MM_SHUFFLE(1, 0, 3, 2)); \
-        B0 = _mm_shuffle_epi32(B0, _MM_SHUFFLE(2, 1, 0, 3)); \
-        B1 = _mm_shuffle_epi32(B1, _MM_SHUFFLE(2, 1, 0, 3)); \
+#ifdef __SSSE3__
+#define DIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1)                      \
+    do {                                                                       \
+        __m128i t0 = _mm_alignr_epi8(B1, B0, 8);                               \
+        __m128i t1 = _mm_alignr_epi8(B0, B1, 8);                               \
+        B0 = t0;                                                               \
+        B1 = t1;                                                               \
+                                                                               \
+        t0 = C0;                                                               \
+        C0 = C1;                                                               \
+        C1 = t0;                                                               \
+                                                                               \
+        t0 = _mm_alignr_epi8(D1, D0, 8);                                       \
+        t1 = _mm_alignr_epi8(D0, D1, 8);                                       \
+        D0 = t1;                                                               \
+        D1 = t0;                                                               \
+    } while ((void)0, 0)
+
+#define UNDIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1)                    \
+    do {                                                                       \
+        __m128i t0 = _mm_alignr_epi8(B0, B1, 8);                               \
+        __m128i t1 = _mm_alignr_epi8(B1, B0, 8);                               \
+        B0 = t0;                                                               \
+        B1 = t1;                                                               \
+                                                                               \
+        t0 = C0;                                                               \
+        C0 = C1;                                                               \
+        C1 = t0;                                                               \
+                                                                               \
+        t0 = _mm_alignr_epi8(D0, D1, 8);                                       \
+        t1 = _mm_alignr_epi8(D1, D0, 8);                                       \
+        D0 = t1;                                                               \
+        D1 = t0;                                                               \
+    } while ((void)0, 0)
+#else /* SSE2 fallback */
+#define DIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1)                      \
+    do {                                                                       \
+        __m128i t0 = D0;                                                       \
+        __m128i t1 = B0;                                                       \
+        D0 = C0;                                                               \
+        C0 = C1;                                                               \
+        C1 = D0;                                                               \
+        D0 = _mm_unpackhi_epi64(D1, _mm_unpacklo_epi64(t0, t0));               \
+        D1 = _mm_unpackhi_epi64(t0, _mm_unpacklo_epi64(D1, D1));               \
+        B0 = _mm_unpackhi_epi64(B0, _mm_unpacklo_epi64(B1, B1));               \
+        B1 = _mm_unpackhi_epi64(B1, _mm_unpacklo_epi64(t1, t1));               \
+    } while ((void)0, 0)
+
+#define UNDIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1)                    \
+    do {                                                                       \
+        __m128i t0, t1;                                                        \
+        t0 = C0;                                                               \
+        C0 = C1;                                                               \
+        C1 = t0;                                                               \
+        t0 = B0;                                                               \
+        t1 = D0;                                                               \
+        B0 = _mm_unpackhi_epi64(B1, _mm_unpacklo_epi64(B0, B0));               \
+        B1 = _mm_unpackhi_epi64(t0, _mm_unpacklo_epi64(B1, B1));               \
+        D0 = _mm_unpackhi_epi64(D0, _mm_unpacklo_epi64(D1, D1));               \
+        D1 = _mm_unpackhi_epi64(D1, _mm_unpacklo_epi64(t1, t1));               \
+    } while ((void)0, 0)
+#endif
+
+#define BLAKE2_ROUND_SSSE3(A0, A1, B0, B1, C0, C1, D0, D1)                     \
+    do {                                                                       \
+        G1_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                              \
+        G2_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                              \
+                                                                               \
+        DIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                     \
+                                                                               \
+        G1_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                              \
+        G2_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                              \
+                                                                               \
+        UNDIAGONALIZE_SSSE3(A0, B0, C0, D0, A1, B1, C1, D1);                   \
     } while ((void)0, 0)
 
 /* Number of 128-bit words in an Argon2 block (1024 bytes / 16 bytes = 64) */

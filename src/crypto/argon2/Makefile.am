@@ -21,8 +21,7 @@ libargon2_a_SOURCES = \
     argon2.c \
     ref.c \
     thread.c \
-    argon2_dispatch.c \
-    argon2_mempool.c
+    argon2_dispatch.c
 
 # Base compiler flags
 AM_CFLAGS = -O2 -fPIC

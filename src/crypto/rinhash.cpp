@@ -7,7 +7,6 @@
 #include "crypto/blake3/blake3.h"
 #include "crypto/sha3.h"
 #include "crypto/argon2/include/argon2.h"
-#include "crypto/argon2/argon2_mempool.h"
 #include <span.h> // MakeUCharSpan を使うなら必要
 #include <stdexcept>
 
@@ -37,8 +36,8 @@ uint256 RinHash(const CBlockHeader& block)
     context.lanes = 1;
     context.threads = 1;
     context.version = ARGON2_VERSION_13;
-    context.allocate_cbk = argon2_mempool_allocate;
-    context.free_cbk = argon2_mempool_free;
+    context.allocate_cbk = nullptr;
+    context.free_cbk = nullptr;
     context.flags = ARGON2_DEFAULT_FLAGS;
 
     if (argon2d_ctx(&context) != ARGON2_OK) {

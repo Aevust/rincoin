@@ -7,16 +7,225 @@
 #include <unistd.h>
 #endif
 
+// On Windows with MinGW (libstdc++), std::ifstream/ofstream/fstream only accept
+// narrow char paths interpreted as the system ANSI code page, which mangles
+// UTF-8 encoded paths containing non-ASCII characters (e.g. usernames with
+// accented letters). We use _wfopen with the wide-string (UTF-16) path from
+// ghc::filesystem::path::wstring() combined with __gnu_cxx::stdio_filebuf to
+// properly open files at Unicode paths. This mirrors the approach used by
+// fsbridge in src/fs.h for the rest of the codebase.
+//
+// On MSVC, std::fstream accepts wchar_t* directly, so we use that.
+// On POSIX, narrow UTF-8 paths work natively.
+
+#if defined(_WIN32) && defined(__GLIBCXX__)
+#include <ext/stdio_filebuf.h>
+
+// Convert std::ios_base::openmode to fopen mode string
+static std::string openmode_to_str(std::ios_base::openmode mode)
+{
+    switch (mode & ~std::ios_base::ate) {
+    case std::ios_base::in | std::ios_base::binary:
+        return "rb";
+    case std::ios_base::out | std::ios_base::binary | std::ios_base::trunc:
+        return "wb";
+    case std::ios_base::out | std::ios_base::binary | std::ios_base::app:
+    case std::ios_base::out | std::ios_base::binary:
+        return "ab";
+    case std::ios_base::in | std::ios_base::out | std::ios_base::binary:
+        return "r+b";
+    case std::ios_base::in | std::ios_base::out | std::ios_base::binary | std::ios_base::trunc:
+        return "w+b";
+    case std::ios_base::in | std::ios_base::out | std::ios_base::binary | std::ios_base::app:
+        return "a+b";
+    case std::ios_base::out | std::ios_base::trunc:
+        return "w";
+    case std::ios_base::out | std::ios_base::app:
+    case std::ios_base::out:
+        return "a";
+    case std::ios_base::in:
+        return "r";
+    default:
+        return std::string();
+    }
+}
+
+// Wide-string-aware input stream for MinGW
+class mw_ifstream : public std::istream
+{
+public:
+    mw_ifstream() = default;
+    mw_ifstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in)
+    {
+        open(p, mode);
+    }
+    ~mw_ifstream() { close(); }
+
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in)
+    {
+        close();
+        mode |= std::ios_base::in;
+        std::wstring wmode = std::wstring(openmode_to_str(mode).begin(), openmode_to_str(mode).end());
+        m_file = _wfopen(p.wstring().c_str(), wmode.c_str());
+        if (m_file == nullptr) {
+            return;
+        }
+        m_filebuf = __gnu_cxx::stdio_filebuf<char>(m_file, mode);
+        rdbuf(&m_filebuf);
+        if (mode & std::ios_base::ate) {
+            seekg(0, std::ios_base::end);
+        }
+    }
+
+    bool is_open() const { return m_file != nullptr; }
+
+    void close()
+    {
+        if (m_file != nullptr) {
+            m_filebuf.close();
+            fclose(m_file);
+        }
+        m_file = nullptr;
+    }
+
+private:
+    __gnu_cxx::stdio_filebuf<char> m_filebuf;
+    FILE* m_file = nullptr;
+};
+
+// Wide-string-aware output stream for MinGW
+class mw_ofstream : public std::ostream
+{
+public:
+    mw_ofstream() = default;
+    mw_ofstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::out)
+    {
+        open(p, mode);
+    }
+    ~mw_ofstream() { close(); }
+
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::out)
+    {
+        close();
+        mode |= std::ios_base::out;
+        std::wstring wmode = std::wstring(openmode_to_str(mode).begin(), openmode_to_str(mode).end());
+        m_file = _wfopen(p.wstring().c_str(), wmode.c_str());
+        if (m_file == nullptr) {
+            return;
+        }
+        m_filebuf = __gnu_cxx::stdio_filebuf<char>(m_file, mode);
+        rdbuf(&m_filebuf);
+        if (mode & std::ios_base::ate) {
+            seekp(0, std::ios_base::end);
+        }
+    }
+
+    bool is_open() const { return m_file != nullptr; }
+
+    void close()
+    {
+        if (m_file != nullptr) {
+            m_filebuf.close();
+            fclose(m_file);
+        }
+        m_file = nullptr;
+    }
+
+private:
+    __gnu_cxx::stdio_filebuf<char> m_filebuf;
+    FILE* m_file = nullptr;
+};
+
+// Wide-string-aware bidirectional stream for MinGW
+class mw_fstream : public std::iostream
+{
+public:
+    mw_fstream() = default;
+    mw_fstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out)
+    {
+        open(p, mode);
+    }
+    ~mw_fstream() { close(); }
+
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out)
+    {
+        close();
+        std::wstring wmode = std::wstring(openmode_to_str(mode).begin(), openmode_to_str(mode).end());
+        m_file = _wfopen(p.wstring().c_str(), wmode.c_str());
+        if (m_file == nullptr) {
+            return;
+        }
+        m_filebuf = __gnu_cxx::stdio_filebuf<char>(m_file, mode);
+        rdbuf(&m_filebuf);
+    }
+
+    bool is_open() const { return m_file != nullptr; }
+
+    void close()
+    {
+        if (m_file != nullptr) {
+            m_filebuf.close();
+            fclose(m_file);
+        }
+        m_file = nullptr;
+    }
+
+private:
+    __gnu_cxx::stdio_filebuf<char> m_filebuf;
+    FILE* m_file = nullptr;
+};
+
+#elif defined(_WIN32) && defined(_MSC_VER)
+// MSVC: std::fstream accepts wchar_t* directly.
+// Thin wrappers that convert ghc::filesystem::path to wstring for the standard streams.
+
+class mw_ifstream : public std::ifstream
+{
+public:
+    mw_ifstream() = default;
+    mw_ifstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in)
+        : std::ifstream(p.wstring().c_str(), mode) {}
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in)
+    { std::ifstream::open(p.wstring().c_str(), mode); }
+};
+
+class mw_ofstream : public std::ofstream
+{
+public:
+    mw_ofstream() = default;
+    mw_ofstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::out)
+        : std::ofstream(p.wstring().c_str(), mode) {}
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::out)
+    { std::ofstream::open(p.wstring().c_str(), mode); }
+};
+
+class mw_fstream : public std::fstream
+{
+public:
+    mw_fstream() = default;
+    mw_fstream(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out)
+        : std::fstream(p.wstring().c_str(), mode) {}
+    void open(const ghc::filesystem::path& p, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out)
+    { std::fstream::open(p.wstring().c_str(), mode); }
+};
+
+#else
+// POSIX: narrow UTF-8 paths work natively. Use standard streams directly.
+using mw_ifstream = std::ifstream;
+using mw_ofstream = std::ofstream;
+using mw_fstream = std::fstream;
+#endif
+
 void File::Create()
 {
     m_path.GetParent().CreateDir();
 
-    std::ifstream inFile(m_path.m_path, std::ios::in | std::ifstream::ate | std::ifstream::binary);
+    mw_ifstream inFile(m_path.m_path, std::ios::in | std::ifstream::ate | std::ifstream::binary);
     if (inFile.is_open()) {
         inFile.close();
     } else {
         LOG_INFO_F("File {} does not exist. Creating it now.", m_path);
-        std::ofstream outFile(m_path.m_path, std::ios::out | std::ios::binary | std::ios::trunc);
+        mw_ofstream outFile(m_path.m_path, std::ios::out | std::ios::binary | std::ios::trunc);
         if (!outFile.is_open()) {
             ThrowFile_F("Failed to create file: {}", m_path);
         }
@@ -34,8 +243,8 @@ void File::Truncate(const uint64_t size)
     bool success = false;
 
 #if defined(WIN32)
-    HANDLE hFile = CreateFile(
-        m_path.ToString().c_str(),
+    HANDLE hFile = CreateFileW(
+        m_path.m_path.wstring().c_str(),
         GENERIC_WRITE,
         FILE_SHARE_READ,
         NULL,
@@ -77,7 +286,7 @@ std::vector<uint8_t> File::ReadBytes(const size_t startIndex, const size_t numBy
         ThrowFile_F("{} not found", *this);
     }
 
-    std::ifstream file(m_path.m_path, std::ios::in | std::ios::binary);
+    mw_ifstream file(m_path.m_path, std::ios::in | std::ios::binary);
     if (!file.is_open()) {
         ThrowFile_F("Failed to open {} for reading", *this);
     }
@@ -101,7 +310,7 @@ void File::Write(const std::vector<uint8_t>& bytes)
         Create();
     }
 
-    std::ofstream file(m_path.m_path, std::ios::out | std::ios::binary | std::ios::app);
+    mw_ofstream file(m_path.m_path, std::ios::out | std::ios::binary | std::ios::app);
     if (!file.is_open()) {
         ThrowFile_F("Failed to write to file: {}", m_path);
     }
@@ -113,7 +322,7 @@ void File::Write(const std::vector<uint8_t>& bytes)
 void File::Write(const size_t startIndex, const std::vector<uint8_t>& bytes, const bool truncate)
 {
     if (!bytes.empty()) {
-        std::fstream file(m_path.m_path, std::ios::out | std::ios::binary | std::ios::app);
+        mw_fstream file(m_path.m_path, std::ios::out | std::ios::binary | std::ios::app);
         if (!file.is_open()) {
             ThrowFile_F("Failed to write to file: {}", m_path);
         }
@@ -130,7 +339,7 @@ void File::Write(const size_t startIndex, const std::vector<uint8_t>& bytes, con
 
 void File::WriteBytes(const std::unordered_map<uint64_t, uint8_t>& bytes)
 {
-    std::fstream file(m_path.m_path, std::ios_base::binary | std::ios_base::out | std::ios_base::in);
+    mw_fstream file(m_path.m_path, std::ios_base::binary | std::ios_base::out | std::ios_base::in);
 
     for (auto iter : bytes) {
         file.seekp(iter.first);

@@ -37,6 +37,14 @@
 #include "blake2/blake2.h"
 #include "blake2/blake2-impl.h"
 
+/* SIMD dispatch for optimized Argon2 implementations */
+#ifndef ARGON2_NO_SIMD_DISPATCH
+#include "argon2_dispatch.h"
+#define FILL_SEGMENT(instance, position) fill_segment_dispatch(instance, position)
+#else
+#define FILL_SEGMENT(instance, position) fill_segment(instance, position)
+#endif
+
 #ifdef GENKAT
 #include "genkat.h"
 #endif
@@ -264,7 +272,7 @@ static int fill_memory_blocks_st(argon2_instance_t *instance) {
         for (s = 0; s < ARGON2_SYNC_POINTS; ++s) {
             for (l = 0; l < instance->lanes; ++l) {
                 argon2_position_t position = {r, l, (uint8_t)s, 0};
-                fill_segment(instance, position);
+                FILL_SEGMENT(instance, position);
             }
         }
 #ifdef GENKAT
@@ -283,7 +291,7 @@ static void *fill_segment_thr(void *thread_data)
 #endif
 {
     argon2_thread_data *my_data = thread_data;
-    fill_segment(my_data->instance_ptr, my_data->pos);
+    FILL_SEGMENT(my_data->instance_ptr, my_data->pos);
     argon2_thread_exit();
     return 0;
 }

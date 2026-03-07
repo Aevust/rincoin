@@ -35,6 +35,7 @@ config.cache
 config.log
 config.status
 configure
+configure~
 libtool
 src/config/bitcoin-config.h
 src/config/bitcoin-config.h.in
@@ -113,6 +114,10 @@ build
 
 # Previous releases
 releases
+
+# Build cache and release builds
+.build-cache/
+release-builds/
 
 #lcov
 *.gcno

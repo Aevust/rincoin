@@ -1,0 +1,18 @@
+Fix Qt 5.9.8 compatibility with newer MinGW-w64 headers that already define TOUCHINPUT
+
+The original condition "defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)" always
+includes the definitions when using MinGW, even if the system headers already provide
+them. This causes redefinition errors with newer MinGW-w64 versions. The fix is to 
+only define these structures when they're not already defined by the system headers.
+
+--- old/qtbase/src/plugins/platforms/windows/qwindowsmousehandler.cpp
++++ new/qtbase/src/plugins/platforms/windows/qwindowsmousehandler.cpp
+@@ -59,7 +59,7 @@
+  * are present in the Windows SDK's, but not in older MSVC Express
+  * versions. */
+ 
+-#if defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)
++#if !defined(TOUCHEVENTF_MOVE)
+ 
+ typedef struct tagTOUCHINPUT {
+     LONG x;

@@ -39,6 +39,15 @@ This design provides:
 - **Mining:** CPU/GPU mining supported  
 - **Wallet:** Full-node wallet with RIN units
 
+## Building Rincoin
+
+For detailed instructions on building release binaries for Linux and Windows, see [doc/build-release.md](doc/build-release.md).
+
+Quick start for building from source:
+- [Linux/Unix Build Notes](doc/build-unix.md)
+- [Windows Build Notes](doc/build-windows.md)
+- [Release Build Guide](doc/build-release.md)
+
 ## Developer Notes
 
 See `chainparams.cpp` for network configuration.  

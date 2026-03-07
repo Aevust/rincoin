@@ -1,0 +1,15 @@
+noinst_PROGRAMS += genesis_miner
+
+genesis_miner_SOURCES = tools/genesis_miner.cpp
+
+genesis_miner_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+genesis_miner_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+genesis_miner_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+genesis_miner_LDADD = \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1) \
+  $(BOOST_LIBS) $(CRYPTO_LIBS) $(MWEB_LIBS) \
+  $(LIBBITCOIN_UTIL)

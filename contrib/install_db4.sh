@@ -54,7 +54,7 @@ http_get() {
   if [ -f "${2}" ]; then
     echo "File ${2} already exists; not downloading again"
   elif check_exists curl; then
-    curl --insecure --retry 5 "${1}" -o "${2}"
+    curl --insecure --retry 5 -L "${1}" -o "${2}"
   else
     wget --no-check-certificate "${1}" -O "${2}"
   fi
@@ -76,10 +76,11 @@ patch -p2 < clang.patch
 # The packaged config.guess and config.sub are ancient (2009) and can cause build issues.
 # Replace them with modern versions.
 # See https://github.com/bitcoin/bitcoin/issues/16064
-CONFIG_GUESS_URL='https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=55eaf3e779455c4e5cc9f82efb5278be8f8f900b'
-CONFIG_GUESS_HASH='2d1ff7bca773d2ec3c6217118129220fa72d8adda67c7d2bf79994b3129232c1'
-CONFIG_SUB_URL='https://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=55eaf3e779455c4e5cc9f82efb5278be8f8f900b'
-CONFIG_SUB_HASH='3a4befde9bcdf0fdb2763fc1bfa74e8696df94e1ad7aac8042d133c8ff1d2e32'
+# Using GCC mirror on GitHub as git.savannah.gnu.org is unreliable
+CONFIG_GUESS_URL='https://raw.githubusercontent.com/gcc-mirror/gcc/master/config.guess'
+CONFIG_GUESS_HASH='7d1e3c79b86de601c3a0457855ab854dffd15163f53c91edac54a7be2e9c931b'
+CONFIG_SUB_URL='https://raw.githubusercontent.com/gcc-mirror/gcc/master/config.sub'
+CONFIG_SUB_HASH='71b8d73e46e0c31b1dc91ba5306f5ef0af009273b3bb283f31d8dad69666fa9e'
 
 rm -f "dist/config.guess"
 rm -f "dist/config.sub"

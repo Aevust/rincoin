@@ -9,7 +9,9 @@
       "Bash(sed -i 's/communicating with a Litecoin node/communicating with a Rincoin node/g' test/functional/test_framework/p2p.py)",
       "Bash(sed -i -e 's/Base class for a litecoin test script/Base class for a rincoin test script/g' -e 's/Individual litecoin test scripts/Individual rincoin test scripts/g' test/functional/test_framework/test_framework.py)",
       "Bash(sed -i -e 's|/\\\\* Litecoin: Disable RBF|/* Rincoin: Disable RBF|g' -e 's|// Litecoin: Disable BumpFee tests|// Rincoin: Disable BumpFee tests|g' -e 's|litecoin:|rincoin:|g' src/qt/test/wallettests.cpp)",
-      "Bash(sed -i 's/during every Litecoin startup/during every Rincoin startup/' src/txdb.cpp)"
+      "Bash(sed -i 's/during every Litecoin startup/during every Rincoin startup/' src/txdb.cpp)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
     ]
   }
 }

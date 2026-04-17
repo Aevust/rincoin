@@ -28,6 +28,21 @@ Rincoin Core has been meticulously engineered and audited to ensure complete mat
 | **Network Ports** | P2P: `9555`, RPC: `9556` |
 | **Network Magic** | `0x52` `0x49` `0x4E` `0x43` ("RINC") |
 
+### 📉 Emission Schedule (Customized Halving: Scenario II)
+
+Rincoin implements a unique piecewise emission schedule to ensure long-term network sustainability and prevent entropic yield collapse. 
+
+| Phase | Block Height | Reward (RIN) | Duration (Blocks) |
+| :--- | :--- | :--- | :--- |
+| **Phase 0** | 0 - 209,999 | 50 | 210,000 |
+| **Phase 1** | 210,000 - 419,999 | 25 | 210,000 |
+| **Phase 2** | 420,000 - 629,999 | 12.5 | 210,000 |
+| **Phase 3** | 630,000 - 839,999 | 6.25 | 210,000 |
+| **Phase 4** | 840,000 - 2,099,999 | 4 | 1,260,000 |
+| **Phase 5** | 2,100,000 - 4,199,999 | 2 | 2,100,000 |
+| **Phase 6** | 4,200,000 - 6,299,999 | 1 | 2,100,000 |
+| **Terminal**| 6,300,000+ | 0.6 | Perpetual |
+
 ## ⚙️ Proof-of-Work Algorithm: RinHash
 
 RinHash is a custom proof-of-work algorithm using:

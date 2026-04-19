@@ -174,6 +174,11 @@ void Miner::AddHogExTransaction(const CBlockIndex* pIndexPrev, CBlock* pblock, C
     //
     // Update block & template
     //
+    if (hogExTransaction.vin.empty() && hogExTransaction.vout.empty()) {
+        LogPrintf("%s: WARNING - skipping HogEx transaction with empty vin and vout\n",
+                  __func__);
+        return;
+    }
     pblock->vtx.emplace_back(MakeTransactionRef(std::move(hogExTransaction)));
     pblock->mweb_block = MWEB::Block(mweb_block);
 

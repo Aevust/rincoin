@@ -15,13 +15,35 @@ Individuals not listed above are **not** members of the Rincoin Core Team, regar
 
 ## Reporting a Vulnerability
 
-To report security issues send an email to **info@rincoin.org** (not for general support).
+To report security issues, send an email to **info@rincoin.org** (not for general support).
+
+Please do **not** open a public GitHub issue for security-sensitive reports.
 
 Sensitive information may be encrypted using the public keys listed above.
 
 ### How to obtain our public key
 
+From the repository (requires a local clone):
+
+```
 gpg --import security/Aevust_0x8B6E3BF45C714ECA_public.asc
+```
+
+Or from the public keyserver (no clone required):
+
+```
+gpg --keyserver hkps://keys.openpgp.org \
+    --recv-keys ED20B6354EE4526D01F83B538B6E3BF45C714ECA
+```
+
+The key is also viewable at
+- [keys.openpgp.org/vks/v1/by-fingerprint/ED20B6354EE4526D01F83B538B6E3BF45C714ECA](https://keys.openpgp.org/vks/v1/by-fingerprint/ED20B6354EE4526D01F83B538B6E3BF45C714ECA)
+
+After import, verify the fingerprint matches the table above:
+
+```
+gpg --fingerprint 0x8B6E3BF45C714ECA
+```
 
 ---
 

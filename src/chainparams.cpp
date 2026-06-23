@@ -113,6 +113,7 @@ public:
         consensus.nRuleChangeActivationThreshold = 5940; // 75% of 7920
         consensus.nMinerConfirmationWindow = 7920; // nPowTargetTimespan / nPowTargetSpacing * 4
         consensus.DGWHeight = 30000; // Dark Gravity Wave (DGW) difficulty adjustment algorithm
+        consensus.nRinHashForkHeight = 840000; // RIN3 nVersion replay protection
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
@@ -347,6 +348,7 @@ public:
         consensus.nRuleChangeActivationThreshold = 158; // 75% for testchains
         consensus.nMinerConfirmationWindow = 210; // nPowTargetTimespan / nPowTargetSpacing
         consensus.DGWHeight = 0; // Dark Gravity Wave (DGW) difficulty adjustment algorithm
+        consensus.nRinHashForkHeight = 840; // RIN3 testnet activation height
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
@@ -433,6 +435,7 @@ public:
         consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.DGWHeight = std::numeric_limits<int>::max();  // Turns off Dark Gravity Wave (DGW) difficulty adjustment algorithm for regtest
+        consensus.nRinHashForkHeight = 840; // RIN3 regtest activation height
         consensus.nPowTargetTimespan = 33 * 60 * 60; // 33hour
         consensus.nPowTargetSpacing = 60 * 50;
         consensus.fPowAllowMinDifficultyBlocks = true;

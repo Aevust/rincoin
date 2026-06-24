@@ -598,7 +598,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // HogEx is only valid in a block, not as a loose transaction
     if (tx.IsHogEx())
         return state.Invalid(TxValidationResult::TX_CONSENSUS, "hogex");
-		
+
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     std::string reason;
     if (fRequireStandard && !IsStandardTx(tx, reason))
@@ -1270,21 +1270,30 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
-    // Customized Halving Schedule (Scenario II)
-    // Phase 4+: explicit piecewise schedule by block height
-    if (nHeight >= 6300000)
-        return CAmount(60000000);   // Terminal: 0.6 RIN (6,300,000~)
-    else if (nHeight >= 4200000)
-        return 1 * COIN;            // Phase 6: 1 RIN (4,200,000 ~ 6,299,999)
-    else if (nHeight >= 2100000)
-        return 2 * COIN;            // Phase 5: 2 RIN (2,100,000 ~ 4,199,999)
-    else if (nHeight >= 840000)
-        return 4 * COIN;            // Phase 4: 4 RIN (840,000 ~ 2,099,999)
+    // Rincoin Customized Halving Schedule (Scenario II)
+    // Phase boundaries are expressed as multiples of nSubsidyHalvingInterval.
+    // This dynamic scaling allows Mainnet (interval=210,000) and Regtest
+    // (interval=210) to share the same consensus rule with proportional timing.
+    //
+    // Mainnet schedule (interval = 210,000):
+    //   Phase 0 (0 ~ 209,999):              50    RIN  [interval×0 .. ×1)
+    //   Phase 1 (210,000 ~ 419,999):        25    RIN  [interval×1 .. ×2)
+    //   Phase 2 (420,000 ~ 629,999):        12.5  RIN  [interval×2 .. ×3)
+    //   Phase 3 (630,000 ~ 839,999):         6.25 RIN  [interval×3 .. ×4)
+    //   Phase 4 (840,000 ~ 2,099,999):       4    RIN  [interval×4 .. ×10) ← CH activated
+    //   Phase 5 (2,100,000 ~ 4,199,999):     2    RIN  [interval×10 .. ×20)
+    //   Phase 6 (4,200,000 ~ 6,299,999):     1    RIN  [interval×20 .. ×30)
+    //   Terminal (6,300,000 ~ perpetual):    0.6  RIN  [interval×30 .. ∞)
+    const int interval = consensusParams.nSubsidyHalvingInterval;
 
-    // Phase 0-3: standard halving via bit shift every nSubsidyHalvingInterval blocks
-    // Phase 0 (0~209,999): 50 RIN, Phase 1 (210,000~419,999): 25 RIN,
-    // Phase 2 (420,000~629,999): 12.5 RIN, Phase 3 (630,000~839,999): 6.25 RIN
-    int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
+    // Phase 4+: explicit piecewise schedule (Customized Halving)
+    if (nHeight >= 30 * interval) return CAmount(60000000);  // Terminal: 0.6 RIN
+    if (nHeight >= 20 * interval) return 1 * COIN;           // Phase 6
+    if (nHeight >= 10 * interval) return 2 * COIN;           // Phase 5
+    if (nHeight >=  4 * interval) return 4 * COIN;           // Phase 4 [CH]
+
+    // Phase 0-3: standard halving via bit shift
+    int halvings = nHeight / interval;
     CAmount nSubsidy = 50 * COIN;
     nSubsidy >>= halvings;
     return nSubsidy;
@@ -1960,7 +1969,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     AssertLockHeld(cs_main);
 
     unsigned int flags = SCRIPT_VERIFY_NONE;
-    
+
     // Start enforcing P2SH (BIP16)
     if (pindex->nHeight >= consensusparams.BIP16Height) {
         flags |= SCRIPT_VERIFY_P2SH;
@@ -2100,7 +2109,7 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     // Now that the whole chain is irreversibly beyond that time it is applied to all blocks except the
     // two in the chain that violate it. This prevents exploiting the issue against nodes during their
     // initial block download.
-    
+
     bool fEnforceBIP30 = true;
     //bool fEnforceBIP30 = !((pindex->nHeight==91842 && pindex->GetBlockHash() == uint256S("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
     //                       (pindex->nHeight==91880 && pindex->GetBlockHash() == uint256S("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")));

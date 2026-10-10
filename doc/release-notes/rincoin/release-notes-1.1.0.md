@@ -5,10 +5,12 @@ Rincoin Core version 1.1.0 is now available from:
 
   <https://github.com/Rin-coin/rincoin/releases>
 
-> **Release candidate.** These notes are published with `v1.1.0-rc1`.
-> The candidate is offered for testing and is not the final release;
-> the final tag will be `v1.1.0` and will differ from this candidate
-> only in the version string.
+> **Release candidate.** These notes are published with `v1.1.0-rc2`.
+> The candidate is offered for testing and is not the final release.
+> Between this candidate and the final tag `v1.1.0`, the version string
+> and the documentation change; should a further code change prove
+> necessary, it will be published as another candidate. What changed
+> since `v1.1.0-rc1` is listed in its own section below.
 
 This is a MAJOR release under RIP-0001. It carries RIN3 transaction-
 version enforcement, which activates unconditionally at block 840,000,
@@ -46,7 +48,7 @@ After upgrading, confirm the version and the RIN3 service bit:
 
 ```
 $ rincoind -version | head -1
-Rincoin Core version v1.1.0-rc1
+Rincoin Core version v1.1.0-rc2
 
 $ rincoin-cli getnetworkinfo | grep -A8 localservicesnames
 ```
@@ -65,10 +67,36 @@ where published, are produced by the
 verification checklist in `doc/release-process.md` section 10-6 has been
 completed for them.
 
-Notable changes
-===============
+Changes since v1.1.0-rc1
+========================
 
 Commit hashes refer to <https://github.com/Rin-coin/rincoin>.
+
+The first candidate funded transactions with the caller's legacy
+version through three wallet RPCs, and from the fork height the node
+rejects such transactions. This candidate carries the fix and two
+functional tests for it, ported from Rincoin-Sim v1.1.0.2, and corrects
+two statements in these notes. Under `src/` the difference between the
+two candidates is `src/wallet/wallet.cpp` alone; consensus, P2P and
+mempool policy are unchanged.
+
+- `fundrawtransaction`, `walletcreatefundedpsbt` and `send` now carry
+  the RIN3 transaction version from one block below the fork height,
+  as the wallet's own transactions already did. See "Funded
+  transactions carry the RIN3 version" under Wallet. (5709a60b8;
+  merged as 433759964 via rincoin-core/rincoin#3)
+- `wallet_rin3_fund_version.py` (7 subtests) and
+  `wallet_rin3_boundary_rescue.py` (9 subtests) are added and
+  registered in `test_runner.py`. (1634eb6d2, 106f0b73e)
+- The version is 1.1.0rc2. (126d21d36)
+- Two corrections to the rc1 notes. `src/validation.cpp` was listed as
+  byte-identical to the Rincoin-Sim reference tree; one line differs
+  (see "Relation to Rincoin-Sim"). The operator checklist said the
+  bundled wallet always emitted the RIN3 version; for the three RPCs
+  above, rc1 did not.
+
+Notable changes
+===============
 
 Consensus
 ---------
@@ -239,6 +267,33 @@ one block below the fork height, so a transaction created at the
 boundary is not left with a legacy version when the block that
 includes it lands on or after 840,000. (7e95083bd)
 
+### Funded transactions carry the RIN3 version
+
+On v1.1.0-rc1 the caller's default `nVersion` of 2 survived funding
+through `fundrawtransaction`, `walletcreatefundedpsbt` and `send` at
+any height, so from block 840,000 the node rejects the result with
+`bad-tx-rinhash-version`; `send` returned a txid for a transaction the
+node had not accepted into its mempool (measured on the published rc1
+binaries, 2026-09-25). `CWallet::FundTransaction()` copied the output
+amounts and the inputs of the transaction `CreateTransaction()` built,
+but not its version. It now copies the version as well when the
+caller's transaction has `CTransaction::CURRENT_VERSION`, so these
+RPCs switch to the RIN3 marker one block below the fork height, where
+`txassembler.cpp` switches the wallet's own transactions. Any other
+version the caller set is kept, so the workaround published on the rc1
+release page, setting the marker before funding, keeps working; a
+caller that sets 2 itself cannot be told apart from one that left the
+default and gets the wallet's version too. Ported from Rincoin-Sim
+v1.1.0.2, released 2026-10-05. (5709a60b8)
+
+Two functional tests cover it. `wallet_rin3_fund_version.py` pins the
+version each of the three RPCs gives on both sides of the switch.
+`wallet_rin3_boundary_rescue.py` follows a legacy-version transaction
+broadcast before the fork height that did not confirm: a mempool that
+holds it keeps it and, by default, refuses its replacement and its
+re-creation; a restart drops it, after which both are accepted and
+mined. See Known issues. (1634eb6d2, 106f0b73e)
+
 ### `-walletdir` with a trailing separator
 
 Since Boost 1.78, `fs::canonical()` no longer strips a trailing path
@@ -275,11 +330,12 @@ the 199-block cache previously crashed in setup because
 `-blockfilterindex` defaults to on in this tree), and the `rin_` test
 prefix accepted by `test_runner.py`. (065898039 through 646715055)
 
-Three tests written for Rincoin are registered:
+Five tests written for Rincoin are registered:
 `feature_rin3_enforcement.py` (10 subtests),
-`feature_taproot_wallet_guard.py` (3) and `p2p_rin3_services.py` (3).
-The Qt RPC console test uses the Rincoin mainnet Merkle root.
-(75f7c0746, 80d5d831a, 7445cf336, e09a447fb)
+`feature_taproot_wallet_guard.py` (3), `p2p_rin3_services.py` (3),
+`wallet_rin3_fund_version.py` (7) and `wallet_rin3_boundary_rescue.py`
+(9). The Qt RPC console test uses the Rincoin mainnet Merkle root.
+(75f7c0746, 80d5d831a, 7445cf336, e09a447fb, 1634eb6d2, 106f0b73e)
 
 ### Unit tests
 
@@ -298,12 +354,12 @@ Build and release
   the signing script; `doc/release-process.md` describes the release
   procedure around them. (e2b753cc7, 6e361434d, fd201f357,
   929c130f2, adb43eb54, b6cfc0a34)
-- The version is 1.1.0rc1 for this candidate (`_CLIENT_VERSION_RC = 1`
-  in `configure.ac`). `contrib/release/` derives artifact names and
-  the git tag from `configure.ac`: distributed files carry `1.1.0rc1`
-  and the tag carries `v1.1.0-rc1`, following the convention of the
-  inherited release candidates in this history. (c92864c64,
-  2bdf74061)
+- The version is 1.1.0rc2 for this candidate (`_CLIENT_VERSION_RC = 2`
+  in `configure.ac`; the first candidate carried 1). `contrib/release/`
+  derives artifact names and the git tag from `configure.ac`:
+  distributed files carry `1.1.0rc2` and the tag carries `v1.1.0-rc2`,
+  following the convention of the inherited release candidates in this
+  history. (c92864c64, 2bdf74061, 126d21d36)
 - `chainparams.cpp` includes `<stdexcept>` explicitly. (30d4da632)
 
 Documentation and policy
@@ -320,8 +376,11 @@ Verification
 ============
 
 All measurements below were taken on the tree this candidate is built
-from, on Ubuntu 24.04 (x86_64), with every commit verified against the
-release signing key.
+from (126d21d36), on Ubuntu 24.04 (x86_64), with every commit verified
+against the release signing key, except the mined testnet chain, which
+was measured on v1.1.0-rc1 (a1b12dc8c) and is marked as such; between
+the two candidates the only change under `src/` is
+`src/wallet/wallet.cpp`.
 
 ### Unit tests
 
@@ -331,24 +390,32 @@ Running 500 test cases...
 *** No errors detected
 
 $ make check
-80 unit suite logs, all clean; libsecp256k1 2/2; univalue 3/3
+exit status 0: the unit suite run per source file (121 files), the
+util tests, libsecp256k1 2/2, univalue 3/3
 ```
+
+Of the 500 cases, `script_assets_test` reports a warning and skips its
+body because `DIR_UNIT_TEST_DATA` is unset, as it does upstream; the
+other 499 pass without one.
 
 ### Functional tests
 
 ```
 $ test/functional/test_runner.py --exclude feature_loadblock.py
-  209 scripts: 114 passed, 53 failed, 42 skipped     (runtime 966 s)
+  211 scripts: 116 passed, 53 failed, 42 skipped     (runtime 963 s)
 ```
 
-Every one of the 53 failures also fails on the Rincoin-Sim reference
-tree, compared as sets rather than counts; Sim has one further failure
-of its own. None is caused by the changes in this release: 52 were
-present in the first baseline this tree could produce, taken as soon
-as the framework repairs let the suite run, and the 53rd,
-`p2p_addr_relay.py`, is intermittent on both trees. The set has been
-re-measured after every group of changes since. They fall into these
-classes:
+The 53 failures are the same set as at v1.1.0-rc1, compared as sets
+rather than counts, and the two scripts added in this candidate pass.
+Every one of the 53 also fails in the Rincoin-Sim baseline of
+2026-09-03, which has one further failure of its own
+(`feature_config_args.py`, which passes here). None is caused by the
+changes in this release: 52 were present in the first baseline this
+tree could produce, taken as soon as the framework repairs let the
+suite run, and the 53rd, `p2p_addr_relay.py`, was intermittent when
+rc1 was measured and failed in every run taken for this candidate, in
+the suite and in three runs on its own. The set has been re-measured
+after every group of changes since. They fall into these classes:
 
 - Address vectors and message-signing prefixes in older tests still
   carry Litecoin values (`rltc1`, WIF and P2SH bytes, `Litecoin Signed
@@ -358,7 +425,12 @@ classes:
   that wait on a block by hash time out.
 - A small number depend on deployment state (`time-too-new`, buried
   deployments, MWEB) or on the test environment.
-- `p2p_addr_relay.py` fails intermittently on both trees.
+- `p2p_addr_relay.py`: for its rate-limit checks the test asks the node
+  for an outbound connection to a mock peer that advertises
+  `NODE_NETWORK | NODE_WITNESS | NODE_MWEB`; the node expects
+  `NODE_RIN3` of outbound peers as well and closes the connection. A
+  framework default, to be corrected in Sim first; intermittent when
+  rc1 was measured, in every run for this candidate.
 
 Each class is tracked for a 1.1.x maintenance release.
 
@@ -373,7 +445,20 @@ the test hangs rather than fails.
 | `feature_rin3_enforcement.py` | 10 subtests PASS |
 | `feature_taproot_wallet_guard.py` | 3 subtests PASS |
 | `p2p_rin3_services.py` | 3 subtests PASS |
-| `validation_tests` | 4 cases PASS (0.29 s, sweep included) |
+| `wallet_rin3_fund_version.py` | 7 subtests PASS |
+| `wallet_rin3_boundary_rescue.py` | 9 subtests PASS |
+| `validation_tests` | 4 cases PASS (sweep included) |
+
+### Fork boundary script
+
+`scripts/sim-rin3-boundary.sh` from the Rincoin-Sim v1.1.0.2 tree
+(sha256 `f19b4d06`...), run with `EXPECT_FUND_MARKER=1`, drives two
+nodes across the regtest fork height and checks the transaction
+version on both sides, the subsidy at the boundary, relay of legacy
+transactions and the three funding RPCs. Against this tree's binaries:
+PASS 24, FAIL 0, INCONCLUSIVE 0. Against the published v1.1.0-rc1
+binaries: PASS 21, FAIL 3, the three being the funding checks this
+candidate fixes. The script is not part of this tree.
 
 ### Consensus behaviour on regtest
 
@@ -382,14 +467,17 @@ $ rincoin-cli -regtest getblockstats 839 | grep subsidy
   "subsidy": 625000000,
 $ rincoin-cli -regtest getblockstats 840 | grep subsidy
   "subsidy": 400000000,
+$ rincoin-cli -regtest getblockstats 841 | grep subsidy
+  "subsidy": 400000000,
 ```
 
 ### Consensus behaviour on a mined testnet chain
 
-The same rules were exercised on a testnet chain mined from genesis on
-this tree, where the difficulty adjustment is live rather than pinned
-at the regtest minimum. The chain is private: it was mined solely by
-this node with `generatetoaddress` and had no peers at any point.
+The same rules were exercised on v1.1.0-rc1 (a1b12dc8c) on a testnet
+chain mined from genesis, where the difficulty adjustment is live
+rather than pinned at the regtest minimum; the consensus code is
+unchanged in this candidate. The chain is private: it was mined solely
+by this node with `generatetoaddress` and had no peers at any point.
 
 Every Customized Halving phase boundary, in satoshi:
 
@@ -428,16 +516,22 @@ that produces it.
 
 ### Relation to Rincoin-Sim
 
-The following files are byte-identical to the Rincoin-Sim v1.1.0
-reference tree at commit `927497cdd5a6ddfa2d9810b0f99e5624d64da40c`:
+The reference tree is Rincoin-Sim v1.1.0.2 at commit
+`7d07316439428c29ec4ace6c56754b2ec932584d`, the tree that release was
+verified on. The following files are byte-identical to it:
 `src/protocol.h`, `src/protocol.cpp`, `src/init.cpp`, `src/amount.h`,
-`src/validation.h`, `src/validation.cpp`,
-`src/test/validation_tests.cpp`, and every file under
-`test/functional/`. `src/chainparams.cpp` differs by the simulator's
-1/1000 mainnet scale, its regtest-only guard and comment spacing. Each
-Core commit that ports a Sim change records the Sim commit hash in its
-message. The Sim release and its archived build and test evidence are
-at <https://doi.org/10.5281/zenodo.21805345>.
+`src/validation.h`, `src/test/validation_tests.cpp`,
+`src/wallet/wallet.cpp`, and every file under `test/`.
+`src/validation.cpp` differs in one line: the header-sync timing line
+is behind `-debug=bench` here (2515fc659) and unconditional in Sim.
+The rc1 notes listed that file as byte-identical; it was not, for the
+same line. `src/chainparams.cpp` differs in comments, whitespace and
+the order of two assignments only; the simulator's chain guard is in
+its `src/bitcoind.cpp`. Each Core commit that ports a Sim change
+records the Sim commit hash in its message. The Sim v1.1.0.2 release
+is at <https://github.com/Aevust/rincoin-sim/releases/tag/v1.1.0.2>;
+the archived build and test evidence of Sim v1.1.0 is at
+<https://doi.org/10.5281/zenodo.21805345>.
 
 Known issues
 ============
@@ -456,18 +550,30 @@ Known issues
   published, come from the `depends` cross-compilation path.
 - MWEB and Taproot remain `NEVER_ACTIVE` on mainnet; see RIP-0004 and
   RIP-0011 for the conditions under which either is revisited.
+- The mempool refuses replacements by default (`-mempoolreplacement`,
+  inherited from Litecoin). A legacy-version transaction that a node
+  accepted before the fork height blocks any re-creation of it on that
+  node until the transaction leaves the mempool; a restart is the
+  measured way out, and `bumpfee` is not one
+  (`wallet_rin3_boundary_rescue.py`).
+- The funding defect fixed in this candidate was present in
+  v1.1.0-rc1, measured on its published binaries. The rc1 release page
+  carries the workaround for nodes still on rc1.
 
 Node operator checklist
 =======================
 
 1. Upgrade every node to v1.1.0 before block 840,000.
 2. Confirm `RIN3` in `localservicesnames` and `protocolversion` 70018.
-3. If you operate a DNS seeder, run it against a v1.1.0 node so the
-   `NODE_RIN3` service filter is honoured.
+3. If you operate a DNS seeder, give it the whitelist entry for the
+   filter v1.1.0 sends, `x3000009` (Aevust/seeder#2); a seeder without
+   it answers such queries with nothing.
 4. If you relied on `HEADERSYNC-PERF` log lines, add `-debug=bench`.
 5. Mining pools and exchanges: transactions you create from block
    840,000 must carry `nVersion = 0x52494E33`. The bundled wallet does
-   this automatically; external transaction builders must be updated.
+   this from this candidate on; rc1 did not for `fundrawtransaction`,
+   `walletcreatefundedpsbt` and `send` (see "Changes since
+   v1.1.0-rc1"). External transaction builders must be updated.
 
 Credits
 =======
